@@ -46,14 +46,19 @@ You can watch the score change as you adjust your posture and use it as a simple
 
 ## Setup
 
-From the project root:
+### Clone the repository
 
 ```bash
-cd /Users/navnitnaman/Sthira
+git clone https://github.com/naman394/Sthira.git
+cd Sthira
+```
 
+### Install dependencies
+
+```bash
 # 1. Create and activate a virtual environment (recommended)
-python3.12 -m venv venv   # or python -m venv venv if 3.12 is your default
-source venv/bin/activate
+python3 -m venv venv   # or python3.12 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # 2. Install dependencies
 pip install -r requirements.txt
@@ -68,8 +73,12 @@ pip install -r requirements.txt
 With the virtual environment active:
 
 ```bash
-cd /Users/navnitnaman/Sthira
 python main.py
+```
+
+Or specify a different camera source:
+```bash
+python main.py --source 1  # Use camera index 1 instead of 0
 ```
 
 - A window titled **“MediaPipe Pose Demo”** will open and show your webcam feed.
@@ -112,6 +121,37 @@ Sthira/
 
 ---
 
+## Deployment Options
+
+### Local Desktop Application
+This app runs locally on any computer with:
+- Python 3.10-3.12
+- A webcam
+- The dependencies from `requirements.txt`
+
+**To package as a standalone executable** (optional):
+```bash
+pip install pyinstaller
+pyinstaller --onefile --windowed main.py
+```
+This creates a single executable file that can run without Python installed.
+
+### Web Deployment (Future)
+For web deployment, you would need to:
+- Convert OpenCV to use WebRTC for browser camera access
+- Run MediaPipe in the browser using MediaPipe JavaScript
+- Or set up a server with video streaming (more complex)
+
+### Cloud Deployment
+For cloud deployment (e.g., AWS, Google Cloud):
+- Requires video streaming infrastructure
+- Consider using MediaPipe in the cloud with WebRTC
+- Or use MediaPipe's web-based solutions
+
+**Note**: The `data_set/` folder is not included in the repository (it's large and used for training if you have ML models). The current app runs in real-time and doesn't need the dataset.
+
+---
+
 ## Where to go next
 
 Now that the base Tadasana check is working, you can:
@@ -119,7 +159,7 @@ Now that the base Tadasana check is working, you can:
 - **Adjust strictness** by tweaking the thresholds in `evaluate_tadasana` (e.g. foot distance, arm distance, head angle).
 - **Add more cues** (e.g. pelvis neutrality, gaze direction, slight knee softness vs locked knees).
 - **Add other simple poses** by writing new evaluation functions and toggles in `main.py`.
-- **Layer audio feedback** back on top of this stable detector when you’re happy with the mechanics.
+- **Layer audio feedback** back on top of this stable detector when you're happy with the mechanics.
 
 This focused setup should make it easier to iterate quickly and get to a truly robust, real‑time yoga trainer.  
-When you’re ready, tell me which pose or feature you want to add next and we’ll build it step by step. 🎯🧘‍♂️
+When you're ready, tell me which pose or feature you want to add next and we'll build it step by step. 🎯🧘‍♂️
