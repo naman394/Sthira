@@ -1,76 +1,92 @@
-# Tadasana Pose Check – MediaPipe + OpenCV Demo
+# 🧘 Sthira - Body-Adaptive Yoga Pose Evaluator
 
-This project is a minimal real‑time pose feedback demo built on top of [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose) and OpenCV.  
-Right now it focuses on a **single pose: Tadasana (Mountain Pose)** and gives you a live **performance score** plus a “success” indicator when your alignment is good enough.
-
-All earlier complex yoga trainer / personalization logic has been removed so we can iterate from a clean, understandable base.
+A real-time yoga pose evaluation system that uses **machine learning** to detect and score yoga poses, automatically adapting to different body types. Built with [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose), OpenCV, and a custom ML model.
 
 ---
 
-## What the demo does
+## ✨ Features
 
-When you run `main.py` with a webcam connected:
+- **🎯 Multi-Pose Detection**: Automatically detects 5 yoga poses in real-time
+- **📊 Quality Scoring**: Provides 0-100% score for pose quality
+- **🔄 Body-Adaptive**: Automatically adapts to different body types and sizes
+- **⚡ Real-Time Performance**: Runs at 30+ FPS on standard hardware
+- **📈 High Accuracy**: 93.33% accuracy on test dataset
+- **🎓 ML-Powered**: Uses template matching with statistical learning
 
-- It uses **MediaPipe Pose** to track 33 body landmarks in real time.
-- It overlays the skeleton on top of your webcam feed.
-- On every frame it computes how close you are to a simple definition of **Tadasana**:
-  - **Feet together** – ankles almost touching (legs straight and parallel).
-  - **Weight centered** – hips and shoulders stacked above your feet (not leaning).
-  - **Spine tall** – shoulders over hips.
-  - **Arms straight by your sides** – wrists close to the body, hanging roughly between hips and shoulders (not forward, not out, not lifted).
-  - **Head straight** – nose centered above your chest, head not tilted more than ~15°.
-- It shows:
-  - A **percentage score** (0–100%) indicating how well you match the Tadasana template.
-  - A green **“Success! Tadasana aligned”** banner when your score is high *and* the key conditions (feet together, arms by side, torso stacked, head straight) are all satisfied.
+### Supported Poses
 
-This means:
-
-- If your legs are apart → no success.
-- If your hands are away from your sides or lifted → no success.
-- If your head is tilted noticeably → no success.
-
-You can watch the score change as you adjust your posture and use it as a simple biofeedback tool to find a clean, balanced Tadasana.
+1. **Child's Pose** (Balasana)
+2. **Tree Pose** (Vrksasana)
+3. **Warrior I** (Virabhadrasana I)
+4. **Downward-Facing Dog** (Adho Mukha Svanasana)
+5. **Plank Pose** (Kumbhakasana)
 
 ---
 
-## Requirements
+## 🎬 What It Does
 
-- **Python**: 3.12 (or any version supported by your installed `mediapipe` wheel).
-- **Hardware**: A webcam (built‑in or USB).
-- **Python packages** (installed via `requirements.txt`):
-  - `mediapipe`
-  - `opencv-python`
-  - `numpy`
+When you run the application with a webcam:
+
+1. **Real-Time Detection**: Uses MediaPipe to track 33 body landmarks
+2. **Pose Classification**: Automatically identifies which of the 5 poses you're doing
+3. **Quality Evaluation**: Scores your pose (0-100%) using body-adaptive ML model
+4. **Visual Feedback**: 
+   - Skeleton overlay on your body
+   - Detected pose name
+   - Quality score with color-coded feedback
+   - Detailed alignment cues
+
+### How Body Adaptation Works
+
+The model normalizes all measurements by body size (torso length), so it works equally well for:
+- Tall and short people
+- Different body proportions
+- Various camera distances
+- Different body types
+
+**Example**: A tall person and short person doing the same pose will get similar scores because the model uses relative measurements, not absolute distances.
 
 ---
 
-## Setup
+## 📋 Requirements
 
-### Clone the repository
+- **Python**: 3.10-3.12 (recommended: 3.12)
+- **Hardware**: Webcam (built-in or USB)
+- **Python Packages** (see `requirements.txt`):
+  - `mediapipe>=0.10.14` - Pose detection
+  - `opencv-python>=4.8.0` - Camera and image processing
+  - `numpy>=1.24.0` - Numerical operations
+  - `scikit-learn>=1.3.0` - ML tools (StandardScaler)
+  - `joblib>=1.3.0` - Model serialization
+  - `scipy>=1.11.0` - Scientific computing
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/naman394/Sthira.git
 cd Sthira
 ```
 
-### Install dependencies
+### 2. Install Dependencies
 
 ```bash
-# 1. Create and activate a virtual environment (recommended)
-python3 -m venv venv   # or python3.12 -m venv venv
+# Create virtual environment (recommended)
+python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# 2. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-> 💡 If you get errors about `mediapipe` not supporting your Python version, make sure you are using a supported Python (e.g. 3.10–3.12) inside the venv.
+> 💡 **Note**: If you get errors about `mediapipe` not supporting your Python version, ensure you're using Python 3.10-3.12 inside the venv.
 
----
+### 3. Run the Application
 
-## Running the demo
-
-With the virtual environment active:
+The application includes a pre-trained model (`body_adaptive_pose_model.pkl`), so you can run it immediately:
 
 ```bash
 python main.py
@@ -81,85 +97,272 @@ Or specify a different camera source:
 python main.py --source 1  # Use camera index 1 instead of 0
 ```
 
-- A window titled **“MediaPipe Pose Demo”** will open and show your webcam feed.
-- Colored skeleton lines appear over your body.
-- At the top left you’ll see:
-  - `Score: …` (overall Tadasana score)
-  - A **green “Success! Tadasana aligned”** message when the pose matches the criteria.
-- Press **`q`** to close the window and stop the program.
+**What you'll see:**
+- Webcam window with skeleton overlay
+- Detected pose name (e.g., "Tree Pose")
+- Quality score (0-100%)
+- Color-coded feedback (red/yellow/green)
+- Alignment cues
+
+Press **`q`** to quit.
 
 ---
 
-## Interpreting the feedback
+## 🎓 Training Your Own Model
 
-While standing in front of the camera:
+If you want to train the model on your own dataset:
 
-- **Feet together**: if your ankles are more than a few centimeters apart, your score drops and you won’t get success.
-- **Arms by side**: if you raise your hands, move them forward/out, or let them hang far from your thighs, `arms_by_side` becomes false and success disappears.
-- **Head straight**: if you tilt or turn your head, the `head_aligned` cue fails and your score decreases.
+### 1. Prepare Your Dataset
 
-Use the score + success banner as a guide:
+Organize your images in this structure:
+```
+data_set/
+└── train/
+    ├── Child_Pose_or_Balasana_/
+    │   ├── image1.jpg
+    │   ├── image2.jpg
+    │   └── ...
+    ├── Tree_Pose_or_Vrksasana_/
+    │   └── ...
+    └── ... (other poses)
+```
 
-1. Stand straight with feet together.
-2. Keep your weight equal on both feet.
-3. Lengthen your spine and stack shoulders over hips.
-4. Let your arms fall straight down by the sides of your body.
-5. Keep your head straight, chin roughly parallel to the floor.
+### 2. Train the Model
 
-When you’re within the tolerance ranges for all these, you’ll see the success message.
+```bash
+python train_body_adaptive.py
+```
+
+This will:
+- Process all training images
+- Extract body-adaptive features
+- Learn ideal patterns for each pose
+- Save model to `body_adaptive_pose_model.pkl`
+
+**Training time**: ~30 minutes for ~636 images
+
+### 3. Test the Model
+
+```bash
+python test_model.py
+```
+
+This evaluates the model on the test dataset and generates a detailed report.
+
+**See `TRAINING_GUIDE.md` for detailed training instructions.**
 
 ---
 
-## Project structure
+## 📊 Model Performance
+
+### Test Results
+
+- **Overall Accuracy**: **93.33%** (98/105 correct predictions)
+- **Per-Pose Accuracy**:
+  - Tree Pose: **100%** ✅
+  - Plank Pose: **100%** ✅
+  - Child's Pose: **95.83%** ✅
+  - Warrior I: **87.50%** ✅
+  - Downward Dog: **85.71%** ✅
+
+### Model Specifications
+
+- **Model Size**: 23 KB (very efficient!)
+- **Inference Speed**: 30+ FPS (real-time)
+- **Training Data**: ~636 images
+- **Test Data**: ~105 images
+- **Features**: 141 body-adaptive features per pose
+
+**See `FINAL_REPORT_CARD.md` for complete test results and analysis.**
+
+---
+
+## 📁 Project Structure
 
 ```
 Sthira/
-├── main.py          # MediaPipe + OpenCV Tadasana detector & scorer
-├── requirements.txt # Minimal dependency list (mediapipe, numpy, opencv-python)
-└── README.md        # This documentation
+├── main.py                      # Main application (real-time pose evaluation)
+├── pose_evaluator.py            # ML model (BodyAdaptivePoseEvaluator)
+├── train_body_adaptive.py        # Training script
+├── test_model.py                # Testing script
+├── body_adaptive_pose_model.pkl # Trained model (23 KB)
+├── pose_classes.txt             # List of supported poses
+├── requirements.txt             # Python dependencies
+├── README.md                    # This file
+├── TRAINING_GUIDE.md            # Training instructions
+├── PROJECT_EXPLANATION.md       # Complete project explanation
+├── FINAL_REPORT_CARD.md         # Test results and analysis
+└── data_set/                    # Dataset (not in repo, too large)
+    ├── train/                   # Training images
+    ├── test/                    # Test images
+    └── valid/                   # Validation images
 ```
 
 ---
 
-## Deployment Options
+## 🔧 How It Works
+
+### Architecture
+
+```
+Webcam Frame
+    ↓
+MediaPipe Pose (Pre-trained)
+    ↓
+33 Body Landmarks
+    ↓
+BodyAdaptivePoseEvaluator (Custom ML)
+    ├── Extract 141 features (body-normalized)
+    ├── Compare to 5 learned ideal patterns
+    ├── Detect pose (best match)
+    └── Score quality (0-100%)
+    ↓
+Display: Pose Name + Score + Feedback
+```
+
+### Model Type
+
+The custom model uses:
+- **Template Matching**: Compares current pose to learned ideal templates
+- **Statistical Learning**: Ideal pattern = mean of training features
+- **Similarity Metrics**: Euclidean distance, cosine similarity, feature comparison
+- **Body Normalization**: All features normalized by body size (torso length)
+
+**Not a neural network** - it's a lightweight, interpretable ML approach that's fast and efficient.
+
+---
+
+## 📖 Documentation
+
+- **`PROJECT_EXPLANATION.md`**: Complete explanation of the entire project from scratch
+- **`TRAINING_GUIDE.md`**: Step-by-step training instructions
+- **`FINAL_REPORT_CARD.md`**: Detailed test results and performance analysis
+
+---
+
+## 🎯 Usage Examples
+
+### Basic Usage
+```bash
+python main.py
+```
+
+### Use Different Camera
+```bash
+python main.py --source 1
+```
+
+### Train Model
+```bash
+python train_body_adaptive.py
+```
+
+### Test Model
+```bash
+python test_model.py
+```
+
+---
+
+## 🛠️ Troubleshooting
+
+### Model Not Found
+If you see: `⚠️ ML model not found`
+- The model file (`body_adaptive_pose_model.pkl`) should be in the project root
+- If missing, run: `python train_body_adaptive.py`
+
+### Camera Not Working
+- Check camera permissions
+- Try different camera index: `python main.py --source 1`
+- Ensure no other app is using the camera
+
+### Poor Detection
+- Ensure good lighting
+- Stand 2-3 meters from camera
+- Make sure full body is visible
+- Avoid cluttered backgrounds
+
+### Import Errors
+- Ensure virtual environment is activated
+- Run: `pip install -r requirements.txt`
+- Check Python version (3.10-3.12)
+
+---
+
+## 🚀 Deployment
 
 ### Local Desktop Application
-This app runs locally on any computer with:
-- Python 3.10-3.12
-- A webcam
-- The dependencies from `requirements.txt`
 
-**To package as a standalone executable** (optional):
+Runs on any computer with:
+- Python 3.10-3.12
+- Webcam
+- Dependencies from `requirements.txt`
+
+**Package as executable** (optional):
 ```bash
 pip install pyinstaller
 pyinstaller --onefile --windowed main.py
 ```
-This creates a single executable file that can run without Python installed.
 
 ### Web Deployment (Future)
+
 For web deployment, you would need to:
 - Convert OpenCV to use WebRTC for browser camera access
 - Run MediaPipe in the browser using MediaPipe JavaScript
-- Or set up a server with video streaming (more complex)
+- Or set up a server with video streaming
 
 ### Cloud Deployment
+
 For cloud deployment (e.g., AWS, Google Cloud):
 - Requires video streaming infrastructure
 - Consider using MediaPipe in the cloud with WebRTC
 - Or use MediaPipe's web-based solutions
 
-**Note**: The `data_set/` folder is not included in the repository (it's large and used for training if you have ML models). The current app runs in real-time and doesn't need the dataset.
+---
+
+## 🔮 Future Enhancements
+
+Potential improvements:
+- ✅ More poses (currently 5, easily expandable)
+- ✅ Pose sequences/workouts
+- ✅ Session recording and replay
+- ✅ Progress tracking over time
+- ✅ Audio feedback
+- ✅ Better UI with progress bars and visualizations
+- ✅ Mobile app support
 
 ---
 
-## Where to go next
+## 📝 License
 
-Now that the base Tadasana check is working, you can:
+This project is open source. See repository for license details.
 
-- **Adjust strictness** by tweaking the thresholds in `evaluate_tadasana` (e.g. foot distance, arm distance, head angle).
-- **Add more cues** (e.g. pelvis neutrality, gaze direction, slight knee softness vs locked knees).
-- **Add other simple poses** by writing new evaluation functions and toggles in `main.py`.
-- **Layer audio feedback** back on top of this stable detector when you're happy with the mechanics.
+---
 
-This focused setup should make it easier to iterate quickly and get to a truly robust, real‑time yoga trainer.  
-When you're ready, tell me which pose or feature you want to add next and we'll build it step by step. 🎯🧘‍♂️
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to:
+- Add more poses
+- Improve the UI
+- Optimize performance
+- Add new features
+
+---
+
+## 📧 Contact
+
+For questions or issues, please open an issue on GitHub.
+
+---
+
+## 🙏 Acknowledgments
+
+- **MediaPipe** by Google for pose detection
+- **OpenCV** for computer vision
+- **scikit-learn** for ML tools
+
+---
+
+**Built with ❤️ for yoga practitioners**
+
+*Sthira* - Sanskrit for "steady" or "stable" - reflecting the goal of achieving steady, well-aligned yoga poses.
