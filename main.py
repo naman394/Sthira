@@ -1,9 +1,10 @@
 """
-Minimal MediaPipe Pose viewer.
-Opens the default webcam, runs MediaPipe Pose, and overlays landmarks.
+Body-Adaptive Yoga Pose Evaluator
+Uses ML model to evaluate poses, adapting to different body types.
 """
 
 import argparse
+import os
 from typing import Dict, Optional, Tuple
 
 import cv2
@@ -11,19 +12,115 @@ import mediapipe as mp
 import numpy as np
 from mediapipe.framework.formats import landmark_pb2
 
+# Try to load ML model
+try:
+    from pose_evaluator import BodyAdaptivePoseEvaluator
+    ML_MODEL_AVAILABLE = True
+except ImportError:
+    ML_MODEL_AVAILABLE = False
+    print("Warning: pose_evaluator not found. Using math-based evaluation.")
+
+
+# Global ML model (loaded once)
+ml_evaluator = None
+pose_classes = []
+
+
+def load_ml_model():
+    """Load the trained ML model if available"""
+    global ml_evaluator, pose_classes
+    
+    if not ML_MODEL_AVAILABLE:
+        return False
+    
+    model_path = "body_adaptive_pose_model.pkl"
+    classes_path = "pose_classes.txt"
+    
+    if not os.path.exists(model_path):
+        print(f"⚠️  ML model not found at {model_path}")
+        print("   Run: python train_body_adaptive.py")
+        return False
+    
+    try:
+        ml_evaluator = BodyAdaptivePoseEvaluator()
+        ml_evaluator.load(model_path)
+        
+        # Load pose classes
+        if os.path.exists(classes_path):
+            with open(classes_path, 'r') as f:
+                pose_classes = [line.strip() for line in f.readlines()]
+        else:
+            # Fallback: use keys from model
+            pose_classes = list(ml_evaluator.ideal_poses.keys())
+        
+        print(f"✅ Loaded ML model with {len(pose_classes)} poses:")
+        for pose in pose_classes:
+            print(f"   - {pose}")
+        return True
+    except Exception as e:
+        print(f"❌ Error loading ML model: {e}")
+        return False
+
+
+def detect_pose_class(landmarks) -> Optional[str]:
+    """
+    Detect which pose class the user is doing.
+    Optimized: score against all poses, return best match with confidence threshold.
+    """
+    if ml_evaluator is None or len(pose_classes) == 0:
+        return None
+    
+    best_pose = None
+    best_score = 0.0
+    second_best_score = 0.0
+    
+    scores = {}
+    for pose_name in pose_classes:
+        score, _ = ml_evaluator.score_pose(landmarks, pose_name)
+        scores[pose_name] = score
+        if score > best_score:
+            second_best_score = best_score
+            best_score = score
+            best_pose = pose_name
+        elif score > second_best_score:
+            second_best_score = score
+    
+    # Optimized threshold: require minimum score AND significant gap from second best
+    min_score = 0.25  # Lower threshold for better detection
+    score_gap = best_score - second_best_score
+    
+    # Return pose if:
+    # 1. Score is above minimum threshold
+    # 2. There's a clear winner (gap > 0.05) OR score is very high (>0.6)
+    if best_score > min_score and (score_gap > 0.05 or best_score > 0.6):
+        return best_pose
+    return None
+
+
+def evaluate_pose_ml(landmarks, pose_name: str) -> Tuple[float, Dict[str, bool]]:
+    """Evaluate pose using ML model (body-adaptive)"""
+    if ml_evaluator is None:
+        return 0.0, {}
+    
+    score, feature_scores = ml_evaluator.score_pose(landmarks, pose_name)
+    
+    # Convert feature scores to cues (for compatibility)
+    cues = {
+        "feet_together": feature_scores.get('feet_ratio', 0) > 0.7,
+        "weight_centered": feature_scores.get('shoulder_offset', 0) > 0.7,
+        "arms_by_side": (feature_scores.get('left_arm_offset', 0) > 0.7 and 
+                        feature_scores.get('right_arm_offset', 0) > 0.7),
+        "torso_stack": feature_scores.get('hip_offset', 0) > 0.7,
+        "head_aligned": feature_scores.get('head_offset', 0) > 0.7,
+    }
+    
+    return score, cues
+
 
 def evaluate_tadasana(
     landmarks: Optional[landmark_pb2.NormalizedLandmarkList],
 ) -> Tuple[float, Dict[str, bool]]:
-    """Compute a simple performance score (0–1) for Tadasana and per-cue flags.
-
-    Cues (mapped to your description):
-    - feet_together         → Stand straight with feet together.
-    - weight_centered       → Keep your weight equal on both feet.
-    - arms_by_side          → Arms straight beside the body.
-    - torso_stack           → Spine tall and straight (shoulders/hips over feet).
-    - head_aligned          → Head straight, chin parallel to the floor.
-    """
+    """Fallback: Math-based evaluation (if ML not available)"""
     if not landmarks:
         return 0.0, {}
 
@@ -57,10 +154,10 @@ def evaluate_tadasana(
 
     # Feet together (ankles close in X)
     feet_distance = abs(left_ankle.x - right_ankle.x)
-    feet_ok = feet_distance <= 0.05  # quite close, but allow tiny gap
+    feet_ok = feet_distance <= 0.05
     feet_score = max(0.0, 1.0 - feet_distance / 0.10)
 
-    # Torso stack & weight centered: centers over feet
+    # Torso stack & weight centered
     ankle_center_x = (left_ankle.x + right_ankle.x) / 2.0
     shoulder_center_x = (left_sh.x + right_sh.x) / 2.0
     hip_center_x = (left_hip.x + right_hip.x) / 2.0
@@ -70,35 +167,30 @@ def evaluate_tadasana(
     torso_ok = shoulder_offset <= 0.06 and hip_offset <= 0.06
     torso_score = max(0.0, 1.0 - max(shoulder_offset, hip_offset) / max_offset)
 
-    # Arms by side: wrists roughly below shoulders and near hip in Y, and close in X
+    # Arms by side
     hip_y = (left_hip.y + right_hip.y) / 2.0
     left_arm_dx = abs(left_wrist.x - left_sh.x)
     right_arm_dx = abs(right_wrist.x - right_sh.x)
-    # Keep a small band so hands are not too close to shoulders or too low
     vertical_ok = (
         left_sh.y + 0.02 < left_wrist.y < hip_y + 0.05
         and right_sh.y + 0.02 < right_wrist.y < hip_y + 0.05
     )
-    # Require wrists to be very close to the side of the torso
     arms_side_ok = (
         left_arm_dx <= 0.05
         and right_arm_dx <= 0.05
         and vertical_ok
     )
-    # If the wrists are not in the side/hip band (e.g., arms lifted up),
-    # drop the arm score heavily so overall score goes down.
     arms_side_score = (
         max(0.0, 1.0 - max(left_arm_dx, right_arm_dx) / 0.15) if arms_side_ok else 0.0
     )
 
-    # Head alignment: nose roughly above shoulder center horizontally
+    # Head alignment
     nose_offset = abs(nose.x - shoulder_center_x)
-    # Also check that the line shoulder_center -> nose is close to vertical
     head_vec = np.array([nose.x - shoulder_center_x, nose.y - (left_sh.y + right_sh.y) / 2.0])
     vertical = np.array([0.0, -1.0])
     head_cos = np.dot(head_vec, vertical) / (np.linalg.norm(head_vec) * np.linalg.norm(vertical) + 1e-6)
     head_cos = float(np.clip(head_cos, -1.0, 1.0))
-    head_angle = float(np.degrees(np.arccos(head_cos)))  # 0° means perfectly vertical
+    head_angle = float(np.degrees(np.arccos(head_cos)))
     head_ok = nose_offset <= 0.05 and head_angle <= 15.0
     head_score = max(0.0, 1.0 - nose_offset / 0.08) * max(0.0, 1.0 - head_angle / 30.0)
 
@@ -115,18 +207,15 @@ def evaluate_tadasana(
     return overall, cues
 
 
-def is_tadasana_pose(
-    landmarks: Optional[landmark_pb2.NormalizedLandmarkList],
-) -> bool:
-    """Wrapper using the performance score with a threshold."""
-    score, cues = evaluate_tadasana(landmarks)
-    return (
-        score >= 0.8
-        and cues.get("feet_together", False)
-        and cues.get("arms_by_side", False)
-        and cues.get("torso_stack", False)
-        and cues.get("head_aligned", False)
-    )
+def format_pose_name(pose_name: str) -> str:
+    """Format pose name for display"""
+    # Clean up folder names for display
+    name = pose_name.replace("_", " ")
+    name = name.replace("or", "|")
+    # Take first part before "|" or "_"
+    if "|" in name:
+        name = name.split("|")[0].strip()
+    return name.title()
 
 
 def run(video_source: int = 0) -> None:
@@ -146,7 +235,12 @@ def run(video_source: int = 0) -> None:
     if not cap.isOpened():
         raise RuntimeError(f"Could not open video source {video_source}")
 
-    print("MediaPipe Pose demo running. Press 'q' to quit.")
+    using_ml = ml_evaluator is not None
+    mode_text = "ML (Body-Adaptive)" if using_ml else "Math-Based"
+    
+    print(f"🧘 Yoga Pose Evaluator - {mode_text}")
+    print("Press 'q' to quit.")
+    
     try:
         while True:
             success, frame = cap.read()
@@ -159,8 +253,10 @@ def run(video_source: int = 0) -> None:
             results = pose.process(frame_rgb)
 
             frame.flags.writeable = True
-            success_pose = False
+            detected_pose = None
             score = 0.0
+            cues = {}
+            
             if results.pose_landmarks:
                 drawing.draw_landmarks(
                     frame,
@@ -170,48 +266,105 @@ def run(video_source: int = 0) -> None:
                         drawing_styles.get_default_pose_landmarks_style()
                     ),
                 )
-                score, cues = evaluate_tadasana(results.pose_landmarks)
-                # Success only when feet are together AND arms really by the side,
-                # plus a reasonably high overall score.
-                success_pose = (
-                    score >= 0.8
-                    and cues.get("feet_together", False)
-                    and cues.get("arms_by_side", False)
-                )
+                
+                # Detect which pose (if ML available)
+                if using_ml:
+                    detected_pose = detect_pose_class(results.pose_landmarks)
+                    
+                    if detected_pose:
+                        # Evaluate using ML
+                        score, cues = evaluate_pose_ml(results.pose_landmarks, detected_pose)
+                    else:
+                        # No pose detected
+                        score = 0.0
+                else:
+                    # Fallback to math-based
+                    score, cues = evaluate_tadasana(results.pose_landmarks)
+                    detected_pose = "Tadasana" if score > 0.5 else None
 
-            if success_pose:
+            # Display pose name
+            y_offset = 40
+            if detected_pose:
+                pose_display = format_pose_name(detected_pose)
                 cv2.putText(
                     frame,
-                    "Success! Tadasana aligned",
-                    (40, 60),
+                    f"Pose: {pose_display}",
+                    (40, y_offset),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    1.0,
-                    (0, 200, 0),
-                    3,
+                    0.8,
+                    (0, 255, 255),
+                    2,
                 )
+                y_offset += 35
             else:
                 cv2.putText(
                     frame,
-                    "Stand tall: feet together, arms by side",
-                    (40, 60),
+                    "No pose detected",
+                    (40, y_offset),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.8,
-                    (0, 0, 255),
+                    0.7,
+                    (128, 128, 128),
                     2,
                 )
+                y_offset += 35
 
-            # Draw performance score
+            # Display score
             cv2.putText(
                 frame,
                 f"Score: {score*100:5.1f}%",
-                (40, 100),
+                (40, y_offset),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (255, 255, 0),
                 2,
             )
+            y_offset += 30
 
-            cv2.imshow("MediaPipe Pose Demo", frame)
+            # Success message
+            if detected_pose and score >= 0.8:
+                cv2.putText(
+                    frame,
+                    "✓ Excellent!",
+                    (40, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 255, 0),
+                    2,
+                )
+            elif detected_pose and score >= 0.6:
+                cv2.putText(
+                    frame,
+                    "Good - Keep adjusting",
+                    (40, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 200, 200),
+                    2,
+                )
+            elif detected_pose:
+                cv2.putText(
+                    frame,
+                    "Adjust your pose",
+                    (40, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 100, 255),
+                    2,
+                )
+
+            # Mode indicator
+            mode_color = (0, 255, 0) if using_ml else (255, 165, 0)
+            cv2.putText(
+                frame,
+                f"Mode: {mode_text}",
+                (40, frame.shape[0] - 20),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                mode_color,
+                1,
+            )
+
+            cv2.imshow("Yoga Pose Evaluator", frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
     finally:
@@ -222,7 +375,7 @@ def run(video_source: int = 0) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Minimal MediaPipe Pose viewer.")
+    parser = argparse.ArgumentParser(description="Body-Adaptive Yoga Pose Evaluator")
     parser.add_argument(
         "--source",
         type=int,
@@ -230,9 +383,13 @@ def main() -> None:
         help="Video source index (default: 0 for built-in webcam).",
     )
     args = parser.parse_args()
+    
+    # Load ML model
+    load_ml_model()
+    
+    # Run
     run(video_source=args.source)
 
 
 if __name__ == "__main__":
     main()
-
