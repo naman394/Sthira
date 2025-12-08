@@ -218,7 +218,7 @@ def format_pose_name(pose_name: str) -> str:
     return name.title()
 
 
-def run(video_source: int = 0) -> None:
+def run(video_source) -> None:
     mp_pose = mp.solutions.pose
     drawing = mp.solutions.drawing_utils
     drawing_styles = mp.solutions.drawing_styles
@@ -231,7 +231,18 @@ def run(video_source: int = 0) -> None:
         min_tracking_confidence=0.5,
     )
 
-    cap = cv2.VideoCapture(video_source)
+    # Determine if video_source is a file path or camera index
+    is_video_file = isinstance(video_source, str) and os.path.exists(video_source)
+    
+    if is_video_file:
+        cap = cv2.VideoCapture(video_source)
+        video_fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        print(f"📹 Video file: {video_source}")
+        print(f"   FPS: {video_fps}, Total frames: {total_frames}")
+    else:
+        cap = cv2.VideoCapture(int(video_source))
+    
     if not cap.isOpened():
         raise RuntimeError(f"Could not open video source {video_source}")
 
@@ -239,14 +250,53 @@ def run(video_source: int = 0) -> None:
     mode_text = "ML (Body-Adaptive)" if using_ml else "Math-Based"
     
     print(f"🧘 Yoga Pose Evaluator - {mode_text}")
-    print("Press 'q' to quit.")
+    if is_video_file:
+        print("Press 'q' to quit, 'r' to replay video.")
+    else:
+        print("Press 'q' to quit.")
+    
+    frame_count = 0
+    failed_reads = 0
+    max_failed_reads = 10  # Allow some failed reads before giving up
     
     try:
         while True:
             success, frame = cap.read()
             if not success:
-                print("Failed to read frame from camera. Exiting.")
-                break
+                failed_reads += 1
+                if is_video_file:
+                    print("Video ended. Press 'r' to replay or 'q' to quit.")
+                    key = cv2.waitKey(0) & 0xFF
+                    if key == ord('r'):
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reset to start
+                        frame_count = 0
+                        failed_reads = 0
+                        continue
+                    elif key == ord('q'):
+                        break
+                else:
+                    if failed_reads >= max_failed_reads:
+                        print(f"Failed to read frame from camera after {max_failed_reads} attempts. Exiting.")
+                        print("💡 Tip: Make sure no other app is using the camera.")
+                        break
+                    # Continue trying for a few more frames
+                    continue
+            else:
+                failed_reads = 0  # Reset counter on successful read
+            
+            frame_count += 1
+            
+            # Display frame number for video files
+            if is_video_file:
+                cv2.putText(
+                    frame,
+                    f"Frame: {frame_count}/{total_frames}",
+                    (40, frame.shape[0] - 20),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 255),
+                    2,
+                )
 
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frame_rgb.flags.writeable = False
@@ -378,17 +428,30 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Body-Adaptive Yoga Pose Evaluator")
     parser.add_argument(
         "--source",
-        type=int,
-        default=0,
-        help="Video source index (default: 0 for built-in webcam).",
+        type=str,
+        default="0",
+        help="Video source: camera index (e.g., '0' for webcam) or video file path (e.g., 'video.mp4').",
     )
     args = parser.parse_args()
+    
+    # Convert to int if it's a number (camera index), otherwise keep as string (file path)
+    try:
+        video_source = int(args.source)
+    except ValueError:
+        video_source = args.source  # It's a file path
     
     # Load ML model
     load_ml_model()
     
     # Run
-    run(video_source=args.source)
+    try:
+        run(video_source=video_source)
+    except KeyboardInterrupt:
+        print("\n⚠️  Interrupted by user")
+    except Exception as e:
+        print(f"\n❌ Error running application: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

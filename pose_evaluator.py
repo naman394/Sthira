@@ -21,10 +21,16 @@ class BodyAdaptivePoseEvaluator:
         """Normalize landmarks by body size"""
         P = mp.solutions.pose.PoseLandmark
         
-        left_shoulder = landmarks[P.LEFT_SHOULDER]
-        right_shoulder = landmarks[P.RIGHT_SHOULDER]
-        left_hip = landmarks[P.LEFT_HIP]
-        right_hip = landmarks[P.RIGHT_HIP]
+        # Handle both list and NormalizedLandmarkList
+        if hasattr(landmarks, 'landmark'):
+            landmark_list = landmarks.landmark
+        else:
+            landmark_list = landmarks
+        
+        left_shoulder = landmark_list[P.LEFT_SHOULDER]
+        right_shoulder = landmark_list[P.RIGHT_SHOULDER]
+        left_hip = landmark_list[P.LEFT_HIP]
+        right_hip = landmark_list[P.RIGHT_HIP]
         
         shoulder_center = np.array([
             (left_shoulder.x + right_shoulder.x) / 2,
@@ -41,7 +47,13 @@ class BodyAdaptivePoseEvaluator:
             return None
         
         normalized = []
-        for lm in landmarks:
+        # Handle both list and NormalizedLandmarkList
+        if hasattr(landmarks, 'landmark'):
+            landmark_list = landmarks.landmark
+        else:
+            landmark_list = landmarks
+            
+        for lm in landmark_list:
             x_norm = (lm.x - hip_center[0]) / torso_length
             y_norm = (lm.y - hip_center[1]) / torso_length
             z_norm = lm.z / torso_length
@@ -53,15 +65,21 @@ class BodyAdaptivePoseEvaluator:
         """Extract relative features that adapt to body type"""
         P = mp.solutions.pose.PoseLandmark
         
-        left_ankle = landmarks[P.LEFT_ANKLE]
-        right_ankle = landmarks[P.RIGHT_ANKLE]
-        left_hip = landmarks[P.LEFT_HIP]
-        right_hip = landmarks[P.RIGHT_HIP]
-        left_shoulder = landmarks[P.LEFT_SHOULDER]
-        right_shoulder = landmarks[P.RIGHT_SHOULDER]
-        left_wrist = landmarks[P.LEFT_WRIST]
-        right_wrist = landmarks[P.RIGHT_WRIST]
-        nose = landmarks[P.NOSE]
+        # Handle both list and NormalizedLandmarkList
+        if hasattr(landmarks, 'landmark'):
+            landmark_list = landmarks.landmark
+        else:
+            landmark_list = landmarks
+        
+        left_ankle = landmark_list[P.LEFT_ANKLE]
+        right_ankle = landmark_list[P.RIGHT_ANKLE]
+        left_hip = landmark_list[P.LEFT_HIP]
+        right_hip = landmark_list[P.RIGHT_HIP]
+        left_shoulder = landmark_list[P.LEFT_SHOULDER]
+        right_shoulder = landmark_list[P.RIGHT_SHOULDER]
+        left_wrist = landmark_list[P.LEFT_WRIST]
+        right_wrist = landmark_list[P.RIGHT_WRIST]
+        nose = landmark_list[P.NOSE]
         
         shoulder_center = np.array([
             (left_shoulder.x + right_shoulder.x) / 2,

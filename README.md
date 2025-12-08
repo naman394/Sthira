@@ -62,40 +62,96 @@ The model normalizes all measurements by body size (torso length), so it works e
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Installation & Quick Start
 
-### 1. Clone the Repository
+### Step 1: Extract the Project
+
+1. Extract the `Sthira_Clean.zip` file to your desired location
+2. Open a terminal/command prompt and navigate to the extracted folder:
+   ```bash
+   cd /path/to/Sthira
+   ```
+
+### Step 2: Check Python Version
+
+Make sure you have Python 3.10, 3.11, or 3.12 installed:
 
 ```bash
-git clone https://github.com/naman394/Sthira.git
-cd Sthira
+python3 --version
+# or
+python --version
 ```
 
-### 2. Install Dependencies
+**Required**: Python 3.10-3.12 (MediaPipe requirement)
+
+### Step 3: Create Virtual Environment (Recommended)
+
+**On macOS/Linux:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+**On Windows:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+You should see `(venv)` in your terminal prompt after activation.
+
+### Step 4: Install Dependencies
+
+With the virtual environment activated, install all required packages:
 
 ```bash
-# Create virtual environment (recommended)
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-> 💡 **Note**: If you get errors about `mediapipe` not supporting your Python version, ensure you're using Python 3.10-3.12 inside the venv.
+This will install:
+- `mediapipe` - Pose detection
+- `opencv-python` - Camera and image processing
+- `numpy` - Numerical operations
+- `scikit-learn` - ML tools
+- `joblib` - Model serialization
+- `scipy` - Scientific computing
 
-### 3. Run the Application
+**Installation time**: ~2-5 minutes depending on your internet speed.
 
-The application includes a pre-trained model (`body_adaptive_pose_model.pkl`), so you can run it immediately:
+> ⚠️ **Troubleshooting**: If you get errors about `mediapipe` not supporting your Python version:
+> - Ensure you're using Python 3.10-3.12
+> - Make sure the virtual environment is activated
+> - Try: `pip install --upgrade pip` first, then `pip install -r requirements.txt`
+
+### Step 5: Verify Installation
+
+Check that all packages are installed correctly:
+
+```bash
+python -c "import mediapipe, cv2, numpy, sklearn, joblib, scipy; print('✅ All packages installed successfully!')"
+```
+
+### Step 6: Run the Application
+
+The project includes a pre-trained model (`body_adaptive_pose_model.pkl`), so you can run it immediately:
 
 ```bash
 python main.py
 ```
 
-Or specify a different camera source:
+**Or specify a different camera source:**
 ```bash
 python main.py --source 1  # Use camera index 1 instead of 0
 ```
+
+**What you'll see:**
+- Webcam window with skeleton overlay
+- Detected pose name (e.g., "Tree Pose")
+- Quality score (0-100%)
+- Color-coded feedback (red/yellow/green)
+- Alignment cues
+
+**Press `q` to quit the application.**
 
 **What you'll see:**
 - Webcam window with skeleton overlay
