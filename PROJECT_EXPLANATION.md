@@ -529,7 +529,7 @@ Webcam Frame
 
 **Types of features:**
 
-**A. Relative Features (8):**
+**A. Relative Features (9):**
 - Feet distance / shoulder width
 - Arm offsets / torso length
 - Head alignment / torso length
@@ -540,7 +540,7 @@ Webcam Frame
 - Each has: x, y, z, visibility = 4 values
 - 33 × 4 = 132 values
 
-**Total:** 8 + 132 = 141 features
+**Total:** 9 + 132 = 141 features
 
 ---
 
